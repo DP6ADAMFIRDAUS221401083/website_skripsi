@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FrameCast — Login</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="noise-overlay"></div>
+
+    <!-- Login Container -->
+    <div class="login-container">
+      <!-- Login Card -->
+      <div class="login-card">
+        <!-- Logo -->
+        <div class="login-logo">
+          <span class="logo-dot"></span>
+          <span class="logo-text">FrameCast</span>
+        </div>
+
+        <!-- Title & Description -->
+        <div class="login-header">
+          <h1 class="login-title">SISTEM LOGIN</h1>
+          <p class="login-subtitle">Webcam Capture Device</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="login-form">
+          <!-- Username Input -->
+          <div class="form-group">
+            <label for="username" class="form-label">Username</label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="form-input"
+              placeholder="Masukkan username"
+              autofocus
+            />
+          </div>
+
+          <!-- Password Input -->
+          <div class="form-group">
+            <label for="password" class="form-label">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="Masukkan password"
+            />
+          </div>
+
+          <!-- Error Message -->
+          <div id="errorMessage" class="error-message"></div>
+
+          <!-- Login Button -->
+          <button type="submit" class="login-button">
+            <span class="login-button-icon">▶</span>
+            <span>LOGIN</span>
+          </button>
+        </form>
+
+        <!-- Demo Credentials Info -->
+        <div class="login-info">
+          <p class="info-label">Demo Credentials:</p>
+          <p class="info-text">
+            <span class="info-label">Username:</span> admin
+          </p>
+          <p class="info-text">
+            <span class="info-label">Password:</span> admin
+          </p>
+        </div>
+      </div>
+
+      <!-- Bottom decoration -->
+      <div class="login-decoration">
+        <span class="decoration-line"></span>
+        <span class="decoration-text">SECURE DEVICE</span>
+        <span class="decoration-line"></span>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="auth.js"></script>
+    <script src="login-handler.js"></script>
+  </body>
+</html>
