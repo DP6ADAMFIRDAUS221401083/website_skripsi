@@ -1,96 +1,109 @@
 /**
  * FrameCast — auth.js
- * Authentication module dengan hardcoded credentials (untuk testing sementara)
+ * Authentication module menggunakan Firebase Authentication
  *
- * Struktur ini dirancang agar mudah diupgrade ke Firebase Authentication:
- * - Ganti logika validateCredentials() dengan Firebase signInWithEmailAndPassword()
- * - Ganti saveSession() dengan Firebase user data
- * - Ganti getSession() dengan Firebase auth state listener
+ * Menggunakan Firebase Authentication untuk:
+ * - Sign in dengan email/password
+ * - Mengelola session user
+ * - Logout user
  */
 
 // ============================================================
-// HARDCODED CREDENTIALS (untuk testing sementara)
-// MUDAH DIUPGRADE KE FIREBASE: Ganti dengan firebase.auth() API
+// FIREBASE CONFIGURATION & INITIALIZATION
 // ============================================================
-const VALID_CREDENTIALS = {
-  username: "admin",
-  password: "admin",
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBG7UnRP0c0jG-zMtWVf6_1Mdza8VNz0ZE",
+  authDomain: "mobile-skripsi.firebaseapp.com",
+  projectId: "mobile-skripsi",
+  storageBucket: "mobile-skripsi.firebasestorage.app",
+  messagingSenderId: "735101162067",
+  appId: "1:735101162067:web:f602328a1db693bae5eca6",
+  measurementId: "G-XCFF3XWN4G",
 };
 
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
 const SESSION_KEY = "framecast_session"; // Key untuk localStorage
-const SESSION_DURATION = null; // null = berlaku sampai logout (bisa diubah ke ms)
+const SESSION_DURATION = null; // null = berlaku sampai logout
 
 // ============================================================
-// AUTENTIKASI
+// AUTENTIKASI DENGAN FIREBASE
 // ============================================================
 
 /**
- * Validasi kredensial pengguna (hardcoded untuk sekarang)
+ * Login dengan Firebase Authentication
  *
- * UPGRADE FIREBASE:
- * - Replace dengan firebase.auth().signInWithEmailAndPassword(username, password)
- * - Handle error dari Firebase
- *
- * @param {string} username - Username yang diinput
- * @param {string} password - Password yang diinput
- * @returns {boolean} - true jika kredensial valid
+ * @param {string} email - Email user
+ * @param {string} password - Password user
+ * @returns {Promise<Object>} - User object jika berhasil
+ * @throws {Error} - Firebase error jika gagal
  */
-function validateCredentials(username, password) {
-  return (
-    username === VALID_CREDENTIALS.username &&
-    password === VALID_CREDENTIALS.password
-  );
+async function loginWithFirebase(email, password) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    const user = userCredential.user;
+
+    // Simpan session ke localStorage
+    saveSession({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+    });
+
+    return user;
+  } catch (error) {
+    throw new Error(getFirebaseErrorMessage(error));
+  }
 }
 
 /**
- * Login user: validasi dan simpan session
+ * Convert Firebase error ke pesan yang user-friendly
  *
- * UPGRADE FIREBASE:
- * - Ganti validateCredentials() dengan firebase.auth().signInWithEmailAndPassword()
- * - Firebase otomatis mengelola session
- *
- * @param {string} username - Username dari form
- * @param {string} password - Password dari form
- * @returns {{success: boolean, message: string}} - Result object
+ * @param {Error} error - Firebase error object
+ * @returns {string} - Pesan error yang user-friendly
  */
-function login(username, password) {
-  // Validasi input
-  if (!username || !password) {
-    return {
-      success: false,
-      message: "Username dan password harus diisi",
-    };
-  }
+function getFirebaseErrorMessage(error) {
+  const errorCode = error.code;
 
-  // Validasi kredensial
-  if (!validateCredentials(username, password)) {
-    return {
-      success: false,
-      message: "Username atau password salah",
-    };
-  }
-
-  // Simpan session ke localStorage
-  saveSession(username);
-
-  return {
-    success: true,
-    message: "Login berhasil",
+  const errorMessages = {
+    "auth/invalid-email": "Format email tidak valid",
+    "auth/user-disabled": "User telah dinonaktifkan",
+    "auth/user-not-found": "Email atau password salah",
+    "auth/wrong-password": "Email atau password salah",
+    "auth/invalid-credential": "Email atau password salah",
+    "auth/too-many-requests":
+      "Terlalu banyak percobaan login gagal. Coba lagi nanti",
+    "auth/operation-not-allowed": "Operasi login tidak diizinkan",
+    "auth/network-request-failed": "Koneksi internet gagal",
   };
+
+  return errorMessages[errorCode] || `Error: ${error.message}`;
 }
 
 /**
- * Simpan session ke localStorage
+ * Simpan session user ke localStorage
  *
- * UPGRADE FIREBASE:
- * - Firebase mengelola session secara otomatis
- * - Tidak perlu manual save di localStorage
- *
- * @param {string} username - Username yang login
+ * @param {Object} userData - Data user dari Firebase
  */
-function saveSession(username) {
+function saveSession(userData) {
   const sessionData = {
-    username: username,
+    uid: userData.uid,
+    email: userData.email,
+    displayName: userData.displayName,
     loginTime: new Date().toISOString(),
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
@@ -98,10 +111,6 @@ function saveSession(username) {
 
 /**
  * Ambil session dari localStorage
- *
- * UPGRADE FIREBASE:
- * - Ganti dengan firebase.auth().currentUser
- * - Atau gunakan onAuthStateChanged untuk real-time listening
  *
  * @returns {Object|null} - Session data jika ada, null jika tidak
  */
@@ -111,15 +120,6 @@ function getSession() {
 
   try {
     const session = JSON.parse(sessionStr);
-    // Validasi session masih berlaku (jika ada durasi)
-    if (SESSION_DURATION) {
-      const loginTime = new Date(session.loginTime);
-      const now = new Date();
-      if (now - loginTime > SESSION_DURATION) {
-        logout(); // Session expired
-        return null;
-      }
-    }
     return session;
   } catch (e) {
     console.error("Error parsing session:", e);
@@ -130,40 +130,77 @@ function getSession() {
 /**
  * Cek apakah user sudah login
  *
- * UPGRADE FIREBASE:
- * - Ganti dengan firebase.auth().currentUser !== null
- *
  * @returns {boolean} - true jika user login, false jika tidak
  */
 function isLoggedIn() {
-  return getSession() !== null;
+  // Check Firebase auth state ATAU localStorage session
+  const hasAuthState = auth.currentUser !== null;
+  const hasSessionData = getSession() !== null;
+  return hasAuthState || hasSessionData;
 }
 
 /**
- * Logout: hapus session dari localStorage
+ * Logout: sign out dari Firebase dan hapus session
  *
- * UPGRADE FIREBASE:
- * - Ganti dengan firebase.auth().signOut()
- *
- * @returns {{success: boolean, message: string}} - Result object
+ * @returns {Promise<void>}
  */
-function logout() {
-  localStorage.removeItem(SESSION_KEY);
-  return {
-    success: true,
-    message: "Logout berhasil",
-  };
+async function logout() {
+  try {
+    await signOut(auth);
+    localStorage.removeItem(SESSION_KEY);
+  } catch (error) {
+    console.error("Error logging out:", error);
+  }
+}
+
+/**
+ * Monitor auth state changes
+ *
+ * @param {Function} callback - Callback function ketika auth state berubah
+ */
+function onAuthChange(callback) {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      saveSession({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+      });
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    callback(user);
+  });
 }
 
 /**
  * Redirect ke halaman login jika belum login
- * Gunakan di script.js pada page load
+ * Menggunakan onAuthStateChanged untuk wait sampai Firebase initialize
  */
 function checkAuthAndRedirect() {
-  if (!isLoggedIn()) {
-    window.location.href = "login.html";
-  }
+  // Wait untuk Firebase selesai check auth state
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User sudah login - simpan session dan lanjut
+      saveSession({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+      });
+    } else if (!getSession()) {
+      // User belum login dan tidak ada session - redirect ke login
+      window.location.href = "login.html";
+    }
+  });
+}
 }
 
 // Export untuk digunakan di file lain
-// (Atau bisa langsung akses global karena <script> tag)
+export {
+  loginWithFirebase,
+  logout,
+  isLoggedIn,
+  getSession,
+  checkAuthAndRedirect,
+  onAuthChange,
+};

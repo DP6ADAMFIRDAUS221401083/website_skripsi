@@ -1,10 +1,13 @@
 /**
  * FrameCast — script.js
  * Webcam capture device: ambil frame dari webcam, kirim ke backend API.
- * Tidak ada inference model, tidak ada prediksi, tidak ada Firebase.
- *
- * Dengan sistem autentikasi terintegrasi.
+ * Dengan sistem autentikasi terintegrasi menggunakan Firebase.
  */
+
+// ============================================================
+// IMPORT FIREBASE AUTH
+// ============================================================
+import { checkAuthAndRedirect, logout } from "./auth.js";
 
 // ============================================================
 // 0. AUTH CHECK - Pastikan user sudah login

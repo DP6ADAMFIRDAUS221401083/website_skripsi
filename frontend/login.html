@@ -32,16 +32,17 @@
 
         <!-- Login Form -->
         <form id="loginForm" class="login-form">
-          <!-- Username Input -->
+          <!-- Email Input (diubah dari username) -->
           <div class="form-group">
-            <label for="username" class="form-label">Username</label>
+            <label for="username" class="form-label">Email</label>
             <input
-              type="text"
+              type="email"
               id="username"
-              name="username"
+              name="email"
               class="form-input"
-              placeholder="Masukkan username"
+              placeholder="Masukkan email Firebase"
               autofocus
+              required
             />
           </div>
 
@@ -53,7 +54,8 @@
               id="password"
               name="password"
               class="form-input"
-              placeholder="Masukkan password"
+              placeholder="Masukkan password Firebase"
+              required
             />
           </div>
 
@@ -66,17 +68,6 @@
             <span>LOGIN</span>
           </button>
         </form>
-
-        <!-- Demo Credentials Info -->
-        <div class="login-info">
-          <p class="info-label">Demo Credentials:</p>
-          <p class="info-text">
-            <span class="info-label">Username:</span> admin
-          </p>
-          <p class="info-text">
-            <span class="info-label">Password:</span> admin
-          </p>
-        </div>
       </div>
 
       <!-- Bottom decoration -->
@@ -88,7 +79,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="auth.js"></script>
-    <script src="login-handler.js"></script>
+    <script type="module" src="login-handler.js"></script>
   </body>
 </html>

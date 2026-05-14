@@ -1,13 +1,16 @@
 /**
  * FrameCast — login-handler.js
- * Handler untuk form login di halaman login.html
+ * Handler untuk form login dengan Firebase Authentication
  */
+
+// Import Firebase auth functions
+import { loginWithFirebase, isLoggedIn } from "./auth.js";
 
 // ============================================================
 // REFERENSI DOM
 // ============================================================
 const loginForm = document.getElementById("loginForm");
-const usernameInput = document.getElementById("username");
+const emailInput = document.getElementById("username"); // Gunakan sebagai email input
 const passwordInput = document.getElementById("password");
 const errorMessage = document.getElementById("errorMessage");
 
@@ -23,7 +26,7 @@ loginForm.addEventListener("submit", handleLogin);
 /**
  * Clear error message saat user mulai typing
  */
-usernameInput.addEventListener("input", clearError);
+emailInput.addEventListener("input", clearError);
 passwordInput.addEventListener("input", clearError);
 
 // ============================================================
@@ -31,45 +34,46 @@ passwordInput.addEventListener("input", clearError);
 // ============================================================
 
 /**
- * Handle login form submission
+ * Handle login form submission dengan Firebase
  * @param {Event} event - Form submit event
  */
 async function handleLogin(event) {
   event.preventDefault();
 
   // Ambil nilai input
-  const username = usernameInput.value.trim();
+  const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
 
   // Clear previous error
   clearError();
 
-  // Disable button selama proses (simulasi loading)
+  // Disable button selama proses
   const loginButton = loginForm.querySelector(".login-button");
   loginButton.disabled = true;
+  loginButton.innerHTML =
+    '<span class="login-button-icon">⏳</span><span>LOADING...</span>';
 
-  // Simulate network delay untuk UX yang lebih baik
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    // Firebase login
+    await loginWithFirebase(email, password);
 
-  // Validasi dengan auth module
-  const result = login(username, password);
-
-  if (result.success) {
-    // Login berhasil: redirect ke halaman utama
+    // Login berhasil: tampilkan success message
     showSuccess("Login berhasil, membuka aplikasi...");
 
     // Redirect setelah delay kecil untuk UX yang smooth
     setTimeout(() => {
       window.location.href = "index.html";
     }, 500);
-  } else {
+  } catch (error) {
     // Login gagal: tampilkan error message
-    showError(result.message);
+    showError(error.message);
     loginButton.disabled = false;
+    loginButton.innerHTML =
+      '<span class="login-button-icon">▶</span><span>LOGIN</span>';
 
     // Clear password untuk security
     passwordInput.value = "";
-    usernameInput.focus();
+    emailInput.focus();
   }
 }
 
