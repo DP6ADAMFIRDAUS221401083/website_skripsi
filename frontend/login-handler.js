@@ -119,3 +119,16 @@ window.addEventListener("DOMContentLoaded", () => {
     window.location.href = "index.html";
   }
 });
+
+const password = document.getElementById("password");
+const togglePassword = document.getElementById("togglePassword");
+
+if (password && togglePassword) {
+  togglePassword.addEventListener("click", () => {
+    if (password.type === "password") {
+      password.type = "text";
+    } else {
+      password.type = "password";
+    }
+  });
+}
