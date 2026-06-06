@@ -193,7 +193,6 @@ function checkAuthAndRedirect() {
     }
   });
 }
-}
 
 // Export untuk digunakan di file lain
 export {
