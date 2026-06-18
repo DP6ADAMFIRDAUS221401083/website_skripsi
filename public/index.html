@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FrameCast — Webcam Capture Device</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../assets/style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
@@ -117,12 +117,12 @@
           <h3 class="config-title">KONFIGURASI</h3>
 
           <div class="config-row">
-            <label for="endpointUrl">Backend Endpoint</label>
+            <label for="endpointUrl">API Endpoint</label>
             <input
               type="text"
               id="endpointUrl"
-              value="http://localhost:5000/upload"
-              placeholder="http://localhost:5000/upload"
+              value="https://your-huggingface-space.hf.space/predict"
+              placeholder="https://your-huggingface-space.hf.space/predict"
             />
           </div>
 
@@ -200,6 +200,6 @@
     </main>
 
     <!-- Scripts -->
-    <script type="module" src="script.js"></script>
+    <script type="module" src="../src/app.js"></script>
   </body>
 </html>
