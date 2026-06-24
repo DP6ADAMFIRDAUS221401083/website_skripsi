@@ -23,6 +23,7 @@ import {
 import { loadYoloModel, detectPersons, cropPerson } from "./modules/yolo.js";
 import { initializePoseLandmarker, extractPose } from "./modules/mediapipe.js";
 import { sendPrediction } from "./services/predict.js";
+import { recognizeFace } from "./services/face.js";
 import {
   validateFeatures,
   updateStatus,
@@ -233,7 +234,11 @@ async function runPredictionPipeline() {
     state.frameCount++;
     frameCountEl.textContent = state.frameCount;
 
-    // 1. YOLO Detection
+    // 1. Face Recognition (Backend)
+    updateStatus("Recognizing Face...");
+    const faceResult = await recognizeFace(frame);
+
+    // 2. YOLO Detection
     updateStatus("YOLO Detecting...");
     const { bestPerson } = await detectPersons(frame);
 
@@ -277,10 +282,33 @@ async function runPredictionPipeline() {
       state.statSent++;
       statSentEl.textContent = state.statSent;
 
+      // Fusion Logic
+      let fusionString = "";
+      if (faceResult.status === "known" && predictionResult.prediction === "aman") {
+          fusionString = `${faceResult.identity} - Aman`;
+      } else if (faceResult.status === "known" && predictionResult.prediction === "berbahaya") {
+          fusionString = `${faceResult.identity} - Aktivitas Berbahaya`;
+      } else if (faceResult.status === "unknown" && predictionResult.prediction === "aman") {
+          fusionString = "Orang Tidak Dikenal";
+      } else if (faceResult.status === "unknown" && predictionResult.prediction === "berbahaya") {
+          fusionString = "ALERT: Orang Tidak Dikenal Melakukan Aktivitas Berbahaya";
+      } else {
+          fusionString = `${faceResult.identity} - ${predictionResult.prediction}`;
+      }
+
+      const payload = {
+          identity: faceResult.identity,
+          activity: predictionResult.prediction === "berbahaya" ? "Berbahaya" : "Aman",
+          confidence: predictionResult.confidence,
+          timestamp: new Date().toISOString()
+      };
+
       log(
-        `✓ Prediction: ${predictionResult.prediction.toUpperCase()} (${(predictionResult.confidence * 100).toFixed(1)}%)`,
+        `✓ Fusion: ${fusionString} (Conf: ${(predictionResult.confidence * 100).toFixed(1)}%)`,
         "success",
       );
+      console.log("Notification Payload:", JSON.stringify(payload));
+      
       updateStatus("Prediction Success");
       displayPredictionResult(predictionResult);
     } else {

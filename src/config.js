@@ -12,6 +12,9 @@ export const API_CONFIG = {
   // Endpoint untuk prediction
   PREDICT_URL: "https://dumdum788-cnn-api-docker.hf.space/predict",
 
+  // Face Recognition Backend URL
+  FACE_API_URL: "http://localhost:5000/recognize-face",
+
   // API Timeout (milliseconds)
   TIMEOUT: 10000,
 
