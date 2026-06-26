@@ -89,6 +89,9 @@ const btnLogout = document.getElementById("btnLogout");
 const intervalInput = document.getElementById("captureInterval");
 const intervalDisp = document.getElementById("intervalDisplay");
 
+const qualityInput = document.getElementById("jpegQuality");
+const qualityDisp = document.getElementById("qualityDisplay");
+
 const statusInd = document.getElementById("statusIndicator");
 const statusLabel = document.getElementById("statusLabel");
 const recBadge = document.getElementById("recBadge");
@@ -285,22 +288,22 @@ async function runPredictionPipeline() {
       // Fusion Logic
       let fusionString = "";
       if (faceResult.status === "known" && predictionResult.prediction === "aman") {
-          fusionString = `${faceResult.identity} - Aman`;
+        fusionString = `${faceResult.identity} - Aman`;
       } else if (faceResult.status === "known" && predictionResult.prediction === "berbahaya") {
-          fusionString = `${faceResult.identity} - Aktivitas Berbahaya`;
+        fusionString = `${faceResult.identity} - Aktivitas Berbahaya`;
       } else if (faceResult.status === "unknown" && predictionResult.prediction === "aman") {
-          fusionString = "Orang Tidak Dikenal";
+        fusionString = "Orang Tidak Dikenal";
       } else if (faceResult.status === "unknown" && predictionResult.prediction === "berbahaya") {
-          fusionString = "ALERT: Orang Tidak Dikenal Melakukan Aktivitas Berbahaya";
+        fusionString = "ALERT: Orang Tidak Dikenal Melakukan Aktivitas Berbahaya";
       } else {
-          fusionString = `${faceResult.identity} - ${predictionResult.prediction}`;
+        fusionString = `${faceResult.identity} - ${predictionResult.prediction}`;
       }
 
       const payload = {
-          identity: faceResult.identity,
-          activity: predictionResult.prediction === "berbahaya" ? "Berbahaya" : "Aman",
-          confidence: predictionResult.confidence,
-          timestamp: new Date().toISOString()
+        identity: faceResult.identity,
+        activity: predictionResult.prediction === "berbahaya" ? "Berbahaya" : "Aman",
+        confidence: predictionResult.confidence,
+        timestamp: new Date().toISOString()
       };
 
       log(
@@ -308,7 +311,7 @@ async function runPredictionPipeline() {
         "success",
       );
       console.log("Notification Payload:", JSON.stringify(payload));
-      
+
       updateStatus("Prediction Success");
       displayPredictionResult(predictionResult);
     } else {
@@ -388,6 +391,11 @@ btnStop.addEventListener("click", stopCamera);
 // Update interval display when changed
 intervalInput.addEventListener("input", () => {
   intervalDisp.textContent = `${intervalInput.value} ms`;
+});
+
+// Update quality display when changed
+qualityInput.addEventListener("input", () => {
+  qualityDisp.textContent = qualityInput.value;
 });
 
 // Stop stream if page is closed
