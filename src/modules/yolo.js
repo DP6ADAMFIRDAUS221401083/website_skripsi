@@ -1,77 +1,69 @@
 /**
  * FrameCast — yolo.js
- * Module untuk YOLO detection person menggunakan MediaPipe Object Detector
- * (alternative: TensorFlow.js COCO-SSD untuk quick setup)
+ * Module untuk YOLOv8 detection person menggunakan ONNX Runtime Web
  */
 
-let objectDetector = null;
+let ortSession = null;
 
 /**
- * Load Object Detector model
- * Menggunakan MediaPipe Object Detector atau COCO-SSD sebagai fallback
+ * Load YOLOv8 ONNX model
  * @returns {Promise}
  */
 export async function loadYoloModel() {
   try {
-    if (objectDetector) return objectDetector;
+    if (ortSession) return ortSession;
 
-    // Try MediaPipe Object Detector first
-    try {
-      const { ObjectDetector, FilesetResolver } =
-        await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9");
+    // Load ONNX Runtime Web dynamically
+    await new Promise((resolve, reject) => {
+      if (window.ort) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
 
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm",
-      );
+    // Load the model dari path /models/yolov8n.onnx (relatif terhadap public/)
+    ortSession = await ort.InferenceSession.create("/models/yolov8n.onnx", {
+      executionProviders: ["wasm"],
+    });
 
-      objectDetector = await ObjectDetector.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-        },
-        scoreThreshold: 0.3,
-        runningMode: "VIDEO",
-      });
-
-      console.log("MediaPipe Object Detector loaded");
-      return objectDetector;
-    } catch (error) {
-      console.warn(
-        "MediaPipe Object Detector failed, falling back to COCO-SSD",
-      );
-
-      // Fallback ke COCO-SSD
-      return await loadCocoSsdModel();
-    }
+    console.log("YOLOv8 ONNX model loaded");
+    return ortSession;
   } catch (error) {
-    console.error("Failed to load detector model:", error);
+    console.error("Failed to load YOLOv8 model:", error);
     throw error;
   }
 }
 
 /**
- * Load COCO-SSD sebagai fallback
- * @returns {Promise}
+ * Preprocess image for YOLOv8 (resize to 640x640, normalize to 0-1)
  */
-async function loadCocoSsdModel() {
-  // Dynamically load script
-  await new Promise((resolve, reject) => {
-    if (window.cocoSsd) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src =
-      "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2";
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-
-  objectDetector = await window.cocoSsd.load();
-  console.log("COCO-SSD loaded as fallback");
-  return objectDetector;
+function preprocessImage(input, targetSize = 640) {
+  const canvas = document.createElement("canvas");
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  
+  // Draw the image stretched to targetSize x targetSize
+  ctx.drawImage(input, 0, 0, targetSize, targetSize);
+  
+  const imgData = ctx.getImageData(0, 0, targetSize, targetSize);
+  const data = imgData.data;
+  
+  // Float32Array for tensor (1, 3, 640, 640)
+  const float32Data = new Float32Array(3 * targetSize * targetSize);
+  
+  for (let i = 0; i < targetSize * targetSize; i++) {
+    float32Data[i] = data[i * 4] / 255.0; // R
+    float32Data[targetSize * targetSize + i] = data[i * 4 + 1] / 255.0; // G
+    float32Data[2 * targetSize * targetSize + i] = data[i * 4 + 2] / 255.0; // B
+  }
+  
+  return float32Data;
 }
 
 /**
@@ -81,58 +73,65 @@ async function loadCocoSsdModel() {
  */
 export async function detectPersons(input) {
   try {
-    if (!objectDetector) {
+    if (!ortSession) {
       await loadYoloModel();
     }
 
-    let predictions = [];
-
-    // Check if using MediaPipe or COCO-SSD
-    if (objectDetector.detectForVideo) {
-      // MediaPipe API
-      const result = objectDetector.detectForVideo(input, performance.now());
-      predictions = result.detections || [];
-
-      // Convert to common format
-      predictions = predictions
-        .filter((det) => {
-          const categories = det.categories || [];
-          return categories.some(
-            (cat) => cat.categoryName === "person" && (cat.score || 0) > 0.3,
-          );
-        })
-        .map((det) => ({
+    const targetSize = 640;
+    const float32Data = preprocessImage(input, targetSize);
+    const tensor = new ort.Tensor("float32", float32Data, [1, 3, targetSize, targetSize]);
+    
+    const results = await ortSession.run({ images: tensor });
+    const output = results[ortSession.outputNames[0]].data;
+    
+    // Output shape for yolov8n is [1, 84, 8400]
+    // index (f * 8400 + j) di mana f: (0=xc, 1=yc, 2=w, 3=h, 4=class0 probability)
+    
+    let bestScore = 0.3; // minimum threshold
+    let bestBox = null;
+    let persons = [];
+    
+    const numAnchors = 8400;
+    
+    // Check if the original image has videoWidth/Height or width/height
+    const origW = input.videoWidth || input.width;
+    const origH = input.videoHeight || input.height;
+    
+    const scaleX = origW / targetSize;
+    const scaleY = origH / targetSize;
+    
+    for (let j = 0; j < numAnchors; j++) {
+      // Probability of class 0 (person)
+      const pPerson = output[4 * numAnchors + j];
+      
+      if (pPerson > 0.3) {
+        const xc = output[0 * numAnchors + j];
+        const yc = output[1 * numAnchors + j];
+        const w = output[2 * numAnchors + j];
+        const h = output[3 * numAnchors + j];
+        
+        // Scale back to original dimensions
+        const x1 = (xc - w / 2) * scaleX;
+        const y1 = (yc - h / 2) * scaleY;
+        const x2 = (xc + w / 2) * scaleX;
+        const y2 = (yc + h / 2) * scaleY;
+        
+        const box = {
           class: "person",
-          score: det.categories[0].score,
-          bbox: [
-            det.boundingBox.originX,
-            det.boundingBox.originY,
-            det.boundingBox.width,
-            det.boundingBox.height,
-          ],
-        }));
-    } else {
-      // COCO-SSD API
-      predictions = await objectDetector.estimateObjects(input);
-      predictions = predictions
-        .filter((pred) => pred.class === "person" && (pred.score || 0) > 0.3)
-        .map((pred) => ({
-          class: "person",
-          score: pred.score,
-          bbox: [pred.bbox[0], pred.bbox[1], pred.bbox[2], pred.bbox[3]],
-        }));
+          score: pPerson,
+          bbox: [x1, y1, x2, y2]
+        };
+        
+        persons.push(box);
+        
+        if (pPerson > bestScore) {
+          bestScore = pPerson;
+          bestBox = box;
+        }
+      }
     }
 
-    if (predictions.length === 0) {
-      return { persons: [], bestPerson: null };
-    }
-
-    // Ambil person dengan confidence tertinggi
-    const bestPerson = predictions.reduce((best, current) => {
-      return current.score > best.score ? current : best;
-    });
-
-    return { persons: predictions, bestPerson };
+    return { persons, bestPerson: bestBox };
   } catch (error) {
     console.error("Person detection error:", error);
     throw error;
@@ -140,46 +139,38 @@ export async function detectPersons(input) {
 }
 
 /**
- * Crop image berdasarkan bounding box person
+ * Crop image berdasarkan bounding box person (x1, y1, x2, y2)
  * @param {HTMLCanvasElement|HTMLVideoElement} source - Source image/video
- * @param {Array} bbox - Bounding box [x, y, width, height] atau object {x, y, width, height}
+ * @param {Array} bbox - Bounding box [x1, y1, x2, y2]
  * @returns {HTMLCanvasElement} - Cropped canvas
  */
 export function cropPerson(source, bbox) {
-  // Normalize bbox format
-  let x, y, w, h;
+  let x1, y1, x2, y2;
   if (Array.isArray(bbox)) {
-    [x, y, w, h] = bbox;
+    [x1, y1, x2, y2] = bbox;
   } else {
-    x = bbox.x;
-    y = bbox.y;
-    w = bbox.width;
-    h = bbox.height;
+    x1 = bbox.x1 || bbox.x;
+    y1 = bbox.y1 || bbox.y;
+    x2 = bbox.x2 || (x1 + bbox.width);
+    y2 = bbox.y2 || (y1 + bbox.height);
   }
 
-  // Jika nilai adalah decimal (0-1), convert ke pixels
-  if (x < 1 && y < 1 && w < 1 && h < 1) {
-    x *= source.width;
-    y *= source.height;
-    w *= source.width;
-    h *= source.height;
-  }
+  const w = Math.max(0, x2 - x1);
+  const h = Math.max(0, y2 - y1);
 
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-
   const ctx = canvas.getContext("2d");
 
-  // Add padding untuk context
-  const padding = 0.1;
-  const padX = w * padding;
-  const padY = h * padding;
+  const sourceW = source.videoWidth || source.width;
+  const sourceH = source.videoHeight || source.height;
 
-  const sx = Math.max(0, x - padX);
-  const sy = Math.max(0, y - padY);
-  const sWidth = Math.min(source.width - sx, w + 2 * padX);
-  const sHeight = Math.min(source.height - sy, h + 2 * padY);
+  // Clamp values so we don't go out of bounds
+  const sx = Math.max(0, x1);
+  const sy = Math.max(0, y1);
+  const sWidth = Math.min(sourceW - sx, w);
+  const sHeight = Math.min(sourceH - sy, h);
 
   ctx.drawImage(
     source,
@@ -189,8 +180,8 @@ export function cropPerson(source, bbox) {
     sHeight,
     0,
     0,
-    canvas.width,
-    canvas.height,
+    sWidth,
+    sHeight,
   );
 
   return canvas;
@@ -201,12 +192,12 @@ export function cropPerson(source, bbox) {
  * @returns {boolean}
  */
 export function isModelLoaded() {
-  return yoloModel !== null;
+  return ortSession !== null;
 }
 
 /**
  * Unload model untuk cleanup
  */
 export function unloadModel() {
-  yoloModel = null;
+  ortSession = null;
 }
