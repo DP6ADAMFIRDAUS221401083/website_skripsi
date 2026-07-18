@@ -124,6 +124,50 @@ def recognize_face():
     except Exception as e:
         logging.error(f"Error during face recognition: {e}")
         return jsonify({"identity": "Unknown", "status": "unknown"})
+
+@app.route("/delete-face", methods=["POST"])
+def delete_face():
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    if not name:
+        return jsonify({"success": False, "message": "Face not found"})
+
+    try:
+        existing_data = load_encodings()
+        encodings = existing_data.get("encodings", [])
+        names = existing_data.get("names", [])
+
+        if not encodings:
+            return jsonify({"success": False, "message": "Face not found"})
+
+        updated_encodings = []
+        updated_names = []
+        deleted = False
+
+        for encoding, existing_name in zip(encodings, names):
+            if existing_name == name:
+                deleted = True
+            else:
+                updated_encodings.append(encoding)
+                updated_names.append(existing_name)
+
+        if not deleted:
+            return jsonify({"success": False, "message": "Face not found"})
+
+        existing_data["encodings"] = updated_encodings
+        existing_data["names"] = updated_names
+
+        if save_encodings(existing_data):
+            logging.info(f"Successfully deleted face for user: {name}")
+            return jsonify({"success": True, "message": "Face deleted successfully"})
+        else:
+            return jsonify({"success": False, "message": "Face not found"})
+
+    except Exception as e:
+        logging.error(f"Error during face deletion: {e}")
+        return jsonify({"success": False, "message": "Face not found"})
+
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({
