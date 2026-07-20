@@ -3,6 +3,8 @@
  * Module untuk YOLOv8 detection person menggunakan ONNX Runtime Web
  */
 
+import { APP_CONFIG } from "../config.js";
+
 let ortSession = null;
 
 /**
@@ -26,8 +28,8 @@ export async function loadYoloModel() {
       document.head.appendChild(script);
     });
 
-    // Load the model dari path /models/yolov8n.onnx (relatif terhadap public/)
-    ortSession = await ort.InferenceSession.create("/models/yolov8n.onnx", {
+    // Load the model dari path yang dikonfigurasi di config.js
+    ortSession = await ort.InferenceSession.create(APP_CONFIG.YOLO_MODEL_PATH, {
       executionProviders: ["wasm"],
     });
 

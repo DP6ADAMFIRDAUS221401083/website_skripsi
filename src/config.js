@@ -34,6 +34,12 @@ export const API_CONFIG = {
   DETECTION_CONFIDENCE: 0.3,
 };
 
+export const APP_CONFIG = {
+  // Path ke model YOLO (sesuaikan dengan nama folder project di Laragon/XAMPP)
+  // Contoh: "/website_skripsi/public/models/yolov8n.onnx"
+  YOLO_MODEL_PATH: "/website_skripsi/public/models/yolov8n.onnx",
+};
+
 /**
  * Validate config
  */
