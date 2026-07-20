@@ -24,7 +24,7 @@ import { loadYoloModel, detectPersons, cropPerson } from "./modules/yolo.js";
 import { initializePoseLandmarker, extractPose } from "./modules/mediapipe.js";
 import { sendPrediction } from "./services/predict.js";
 import { recognizeFace } from "./services/face.js";
-import { getCurrentUser } from "./services/firebase_service.js";
+import { getCurrentUser, uploadAlertImage, saveAlert } from "./services/firebase_service.js";
 import { shouldCreateAlert } from "./services/cooldown_service.js";
 import {
   validateFeatures,
@@ -335,6 +335,36 @@ async function runPredictionPipeline() {
           return;
         } else {
           console.log("[Cooldown] Alert diizinkan, lanjut ke Tahap 8.4.");
+          
+          // --- UPLOAD FIREBASE & SAVE FIRESTORE ---
+          try {
+            // Convert canvas frame ke base64 (Data URL) dengan kompresi JPEG 80%
+            const frameDataUrl = frame.toDataURL("image/jpeg", 0.8);
+            
+            // Generate nama file unik menggunakan userId dan timestamp
+            const fileName = `alert_${userId}_${Date.now()}.jpg`;
+            
+            // Upload ke Firebase Storage (format data_url)
+            const imageUrl = await uploadAlertImage(frameDataUrl, fileName, "data_url");
+            console.log("[Storage] Upload berhasil");
+
+            // Siapkan metadata Firestore
+            const alertData = {
+              message: "Terdeteksi aktivitas berbahaya.",
+              confidence: predictionResult.confidence,
+              status: "danger",
+              imageUrl: imageUrl,
+              read: false
+            };
+
+            // Simpan ke Firestore
+            const docId = await saveAlert(alertData);
+            console.log("[Firestore] Alert berhasil disimpan");
+            console.log(`[Alert] Document ID: ${docId}`);
+            
+          } catch (error) {
+            console.error("Gagal melakukan proses Firebase (Storage/Firestore):", error);
+          }
         }
       } else {
         // Jika status "safe", tetap update state cooldown agar bisa mendeteksi transisi safe -> danger nantinya.
