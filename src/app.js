@@ -24,6 +24,8 @@ import { loadYoloModel, detectPersons, cropPerson } from "./modules/yolo.js";
 import { initializePoseLandmarker, extractPose } from "./modules/mediapipe.js";
 import { sendPrediction } from "./services/predict.js";
 import { recognizeFace } from "./services/face.js";
+import { getCurrentUser } from "./services/firebase_service.js";
+import { shouldCreateAlert } from "./services/cooldown_service.js";
 import {
   validateFeatures,
   updateStatus,
@@ -314,6 +316,35 @@ async function runPredictionPipeline() {
 
       updateStatus("Prediction Success");
       displayPredictionResult(predictionResult);
+
+      // --- INTEGRASI COOLDOWN ---
+      const detectionStatus = predictionResult.prediction === "berbahaya" ? "danger" : "safe";
+      
+      if (detectionStatus === "danger") {
+        const user = getCurrentUser();
+        if (!user) {
+          console.error("Pipeline dihentikan: User tidak ditemukan.");
+          return;
+        }
+
+        const userId = user.uid;
+        const bolehAlert = shouldCreateAlert(userId, detectionStatus);
+
+        if (!bolehAlert) {
+          console.log("[Cooldown] Alert diblokir karena belum melewati 10 menit.");
+          return;
+        } else {
+          console.log("[Cooldown] Alert diizinkan, lanjut ke Tahap 8.4.");
+        }
+      } else {
+        // Jika status "safe", tetap update state cooldown agar bisa mendeteksi transisi safe -> danger nantinya.
+        const user = getCurrentUser();
+        if (user) {
+          const userId = user.uid;
+          shouldCreateAlert(userId, detectionStatus);
+        }
+      }
+      // ----------------------------
     } else {
       state.statFailed++;
       statFailedEl.textContent = state.statFailed;
