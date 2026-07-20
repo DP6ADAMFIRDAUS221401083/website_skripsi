@@ -80,9 +80,11 @@ export async function saveAlert(alertData) {
       throw new Error("User belum login");
     }
     
+    const userId = user.uid;
+    
     // Struktur dokumen disesuaikan agar konsisten dengan model Alert di aplikasi Flutter
     const dataToSave = {
-      userId: user.uid,
+      userId,
       message: alertData.message,
       confidence: alertData.confidence,
       status: alertData.status,
