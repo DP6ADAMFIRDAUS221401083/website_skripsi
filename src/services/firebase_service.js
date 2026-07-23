@@ -86,6 +86,8 @@ export async function saveAlert(alertData) {
     const dataToSave = {
       userId,
       message: alertData.message,
+      personName: alertData.personName,
+      isKnownPerson: alertData.isKnownPerson,
       confidence: alertData.confidence,
       status: alertData.status,
       imageUrl: alertData.imageUrl,

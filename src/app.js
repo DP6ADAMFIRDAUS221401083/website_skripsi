@@ -349,8 +349,16 @@ async function runPredictionPipeline() {
             console.log("[Storage] Upload berhasil");
 
             // Siapkan metadata Firestore
+            const isKnownPerson = faceResult.status === "known";
+            const personName = isKnownPerson ? faceResult.identity : "Unknown";
+            const alertMessage = isKnownPerson
+              ? `${personName} terdeteksi melakukan aktivitas berbahaya.`
+              : "Orang tidak dikenal terdeteksi melakukan aktivitas berbahaya.";
+
             const alertData = {
-              message: "Terdeteksi aktivitas berbahaya.",
+              message: alertMessage,
+              personName: personName,
+              isKnownPerson: isKnownPerson,
               confidence: predictionResult.confidence,
               status: "danger",
               imageUrl: imageUrl,
