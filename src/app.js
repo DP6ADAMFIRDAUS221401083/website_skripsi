@@ -472,7 +472,7 @@ window.addEventListener("beforeunload", () => {
 (function init() {
   setStatus("offline");
   log(
-    'FrameCast AI Security System ready. Press "Start Camera" to begin.',
+    'SafeVision AI Security System ready. Press "Start Camera" to begin.',
     "info",
   );
 
