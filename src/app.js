@@ -30,6 +30,7 @@ import {
   validateFeatures,
   updateStatus,
   displayPredictionResult,
+  validatePoseQuality,
 } from "./modules/utils.js";
 
 // ============================================================
@@ -275,9 +276,19 @@ async function runPredictionPipeline() {
       updateStatus("Pose Failed");
       return;
     }
+    // 4.5. Validasi Kualitas Pose (Cegah false positive)
+    const frameW = frame.videoWidth || frame.width || 640;
+    const frameH = frame.videoHeight || frame.height || 480;
+    
+    const qualityResult = validatePoseQuality(bestPerson, poseResult.landmarks, frameW, frameH);
+    if (!qualityResult.valid) {
+      log(`Pose validation failed. Reason: ${qualityResult.reason} CNN inference skipped.`, "error");
+      console.warn("Pose invalid:", qualityResult.reason);
+      updateStatus("Pose Invalid");
+      return;
+    }
 
     const features = poseResult.features;
-
     // 5. Validate features
     if (!validateFeatures(features)) {
       console.error("Features validation failed");

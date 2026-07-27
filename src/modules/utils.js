@@ -112,3 +112,62 @@ export function delay(ms) {
 export function getTimestamp() {
   return new Date().toLocaleTimeString("id-ID", { hour12: false });
 }
+
+/**
+ * Validasi kualitas pose sebelum inferensi CNN
+ * @param {Object} bestPerson - Hasil deteksi YOLO
+ * @param {Array} landmarks - Landmarks asli dari MediaPipe
+ * @param {number} frameWidth - Lebar asli frame
+ * @param {number} frameHeight - Tinggi asli frame
+ * @returns {Object} - { valid: boolean, reason: string }
+ */
+export function validatePoseQuality(bestPerson, landmarks, frameWidth, frameHeight) {
+  // 1. Periksa ukuran bounding box hasil YOLO
+  const MAX_BBOX_RATIO = 0.90; // 90% dari frame
+  
+  if (bestPerson && bestPerson.bbox) {
+    let bboxW, bboxH;
+    if (Array.isArray(bestPerson.bbox)) {
+      const [x1, y1, x2, y2] = bestPerson.bbox;
+      bboxW = x2 - x1;
+      bboxH = y2 - y1;
+    } else {
+      bboxW = bestPerson.bbox.width || (bestPerson.bbox.x2 - bestPerson.bbox.x1);
+      bboxH = bestPerson.bbox.height || (bestPerson.bbox.y2 - bestPerson.bbox.y1);
+    }
+    
+    if (bboxW > frameWidth * MAX_BBOX_RATIO || bboxH > frameHeight * MAX_BBOX_RATIO) {
+      return { valid: false, reason: "Subject too close to camera." };
+    }
+  }
+  
+  // 2. Periksa visibility landmark penting
+  // Indeks MediaPipe Pose (33 landmarks):
+  // 11: left_shoulder, 12: right_shoulder
+  // 23: left_hip, 24: right_hip
+  // 25: left_knee, 26: right_knee
+  const importantIndices = [11, 12, 23, 24, 25, 26];
+  const MIN_VISIBILITY = 0.5;
+  let goodLandmarksCount = 0;
+  
+  if (landmarks && landmarks.length > 0) {
+    importantIndices.forEach(index => {
+      const lm = landmarks[index];
+      if (lm && typeof lm.visibility !== "undefined") {
+        if (lm.visibility >= MIN_VISIBILITY) {
+          goodLandmarksCount++;
+        }
+      } else {
+        // Fallback jika tidak ada skor visibility
+        goodLandmarksCount++;
+      }
+    });
+    
+    // Jika lebih dari separuh (misal >= 4 dari 6) landmark penting tidak terlihat/kurang bagus
+    if (goodLandmarksCount < 3) {
+      return { valid: false, reason: "Insufficient visible landmarks." };
+    }
+  }
+  
+  return { valid: true, reason: "" };
+}
