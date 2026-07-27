@@ -239,11 +239,7 @@ async function runPredictionPipeline() {
     state.frameCount++;
     frameCountEl.textContent = state.frameCount;
 
-    // 1. Face Recognition (Backend)
-    updateStatus("Recognizing Face...");
-    const faceResult = await recognizeFace(frame);
-
-    // 2. YOLO Detection
+    // 1. YOLO Detection
     updateStatus("YOLO Detecting...");
     const { bestPerson } = await detectPersons(frame);
 
@@ -253,10 +249,24 @@ async function runPredictionPipeline() {
       return;
     }
 
-    // 2. Crop person
+    // 2. Face Recognition (Opsional, tidak boleh menghentikan pipeline)
+    updateStatus("Recognizing Face...");
+    let faceResult = { identity: "Unknown", status: "unknown" };
+    try {
+      // Tunggu hasil Face Recognition
+      // Jika terjadi error (koneksi, server mati, dll), default ke Unknown dan lanjut ke MediaPipe
+      const result = await recognizeFace(frame);
+      if (result && result.identity) {
+        faceResult = result;
+      }
+    } catch (err) {
+      console.warn("Face Recognition error, continuing with Unknown:", err);
+    }
+
+    // 3. Crop person for MediaPipe
     const croppedCanvas = cropPerson(frame, bestPerson.bbox);
 
-    // 3. MediaPipe Pose Extraction
+    // 4. MediaPipe Pose Extraction
     updateStatus("Pose Extracting...");
     const poseResult = await extractPose(croppedCanvas);
 
@@ -268,7 +278,7 @@ async function runPredictionPipeline() {
 
     const features = poseResult.features;
 
-    // 4. Validate features
+    // 5. Validate features
     if (!validateFeatures(features)) {
       console.error("Features validation failed");
       updateStatus("Validation Failed");
@@ -277,7 +287,7 @@ async function runPredictionPipeline() {
 
     log(`Features extracted: ${features.length} values`, "info");
 
-    // 5. Send to CNN API (Hugging Face)
+    // 6. Send to CNN API (Hugging Face)
     updateStatus("Sending Prediction...");
     triggerFlash();
 
